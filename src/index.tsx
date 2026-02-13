@@ -1,3 +1,7 @@
-export function multiply(a: number, b: number): number {
-  return a * b;
-}
+export { SimpleCanvas } from "./simple-canvas";
+export type {
+  SimpleCanvasRef,
+  SimpleCanvasProps,
+  StrokeData,
+  CaptureOptions,
+} from "./simple-canvas";

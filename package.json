@@ -1,5 +1,5 @@
 {
-  "name": "@martinrapcan/react-native-canvas",
+  "name": "@martinrapcan/react-native-simple-canvas",
   "version": "0.1.0",
   "description": "A simple, lightweight drawing canvas for React Native with SVG-based rendering. Supports freehand drawing, undo/redo, manual and auto-capture to image, customizable stroke styles, and initial image display.",
   "main": "./lib/module/index.js",
@@ -15,24 +15,13 @@
   "files": [
     "src",
     "lib",
-    "android",
-    "ios",
-    "cpp",
-    "*.podspec",
-    "react-native.config.js",
-    "!ios/build",
-    "!android/build",
-    "!android/gradle",
-    "!android/gradlew",
-    "!android/gradlew.bat",
-    "!android/local.properties",
     "!**/__tests__",
     "!**/__fixtures__",
     "!**/__mocks__",
     "!**/.*"
   ],
   "scripts": {
-    "example": "yarn workspace @martinrapcan/react-native-canvas-example",
+    "example": "bun run --cwd example",
     "clean": "del-cli lib",
     "prepare": "bob build",
     "typecheck": "tsc",
@@ -40,19 +29,25 @@
   },
   "keywords": [
     "react-native",
+    "canvas",
+    "drawing",
+    "svg",
+    "freehand",
+    "undo-redo",
+    "capture",
     "ios",
     "android"
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/MartinRapcan/react-native-simple-canvas-canvas.git"
+    "url": "git+https://github.com/MartinRapcan/react-native-simple-canvas.git"
   },
   "author": "Martin Rapčan <rapcan.rmartin@gmail.com> (https://github.com/MartinRapcan)",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/MartinRapcan/react-native-simple-canvas-canvas/issues"
+    "url": "https://github.com/MartinRapcan/react-native-simple-canvas/issues"
   },
-  "homepage": "https://github.com/MartinRapcan/react-native-simple-canvas-canvas#readme",
+  "homepage": "https://github.com/MartinRapcan/react-native-simple-canvas#readme",
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
@@ -73,12 +68,13 @@
   },
   "peerDependencies": {
     "react": "*",
-    "react-native": "*"
+    "react-native": "*",
+    "react-native-svg": "^15.15.3",
+    "react-native-view-shot": "^4.0.3"
   },
   "workspaces": [
     "example"
   ],
-  "packageManager": "yarn@4.11.0",
   "react-native-builder-bob": {
     "source": "src",
     "output": "lib",
@@ -92,7 +88,8 @@
       [
         "typescript",
         {
-          "project": "tsconfig.build.json"
+          "project": "tsconfig.build.json",
+          "tsc": "node_modules/typescript/bin/tsc"
         }
       ]
     ]

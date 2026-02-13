@@ -27,7 +27,7 @@ jobs:
 
 
       - name: Typecheck files
-        run: yarn typecheck
+        run: bun run typecheck
 
   test:
     runs-on: ubuntu-latest
@@ -40,7 +40,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Run unit tests
-        run: yarn test --maxWorkers=2 --coverage
+        run: bun run test --maxWorkers=2 --coverage
 
   build-library:
     runs-on: ubuntu-latest
@@ -53,7 +53,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Build package
-        run: yarn prepare
+        run: bun run prepare
 
   build-web:
     runs-on: ubuntu-latest
@@ -67,4 +67,4 @@ jobs:
 
       - name: Build example for Web
         run: |
-          yarn example expo export --platform web
+          bun run example expo export --platform web
