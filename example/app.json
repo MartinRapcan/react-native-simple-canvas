@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "ReactNativeSimpleCanvas Example",
-    "slug": "@martinrapcan/react-native-simple-canvas-example",
+    "slug": "@darthrapid/react-native-simple-canvas-example",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "martinrapcan.reactnativesimplecanvas.example"
+      "bundleIdentifier": "darthrapid.reactnativesimplecanvas.example"
     },
     "android": {
       "adaptiveIcon": {
@@ -22,7 +22,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "martinrapcan.reactnativesimplecanvas.example"
+      "package": "darthrapid.reactnativesimplecanvas.example"
     },
     "web": {
       "favicon": "./assets/favicon.png"

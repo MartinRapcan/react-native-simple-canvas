@@ -1,5 +1,5 @@
 {
-  "name": "@martinrapcan/react-native-simple-canvas",
+  "name": "@darthrapid/react-native-simple-canvas",
   "version": "1.0.0",
   "description": "A simple, lightweight drawing canvas for React Native with SVG-based rendering. Supports freehand drawing, undo/redo, manual and auto-capture to image, customizable stroke styles, and initial image display.",
   "main": "./lib/module/index.js",

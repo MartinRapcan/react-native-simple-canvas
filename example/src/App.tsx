@@ -3,7 +3,7 @@ import { View, StyleSheet, Button } from 'react-native';
 import {
   SimpleCanvas,
   type SimpleCanvasRef,
-} from '@martinrapcan/react-native-simple-canvas';
+} from '@darthrapid/react-native-simple-canvas';
 
 export default function App() {
   const canvasRef = useRef<SimpleCanvasRef>(null);

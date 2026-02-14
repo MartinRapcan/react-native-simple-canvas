@@ -1,11 +1,11 @@
-# @martinrapcan/react-native-simple-canvas
+# @darthrapid/react-native-simple-canvas
 
 A simple, lightweight drawing canvas for React Native with SVG-based rendering. Supports freehand drawing, undo/redo, manual and auto-capture to image, customizable stroke styles, and initial image display.
 
 ## Installation
 
 ```sh
-bun add @martinrapcan/react-native-simple-canvas
+bun add @darthrapid/react-native-simple-canvas
 ```
 
 ### Peer dependencies
@@ -21,7 +21,7 @@ bun add react-native-svg react-native-view-shot
 ```tsx
 import { useRef } from 'react';
 import { View, Button } from 'react-native';
-import { SimpleCanvas, type SimpleCanvasRef } from '@martinrapcan/react-native-simple-canvas';
+import { SimpleCanvas, type SimpleCanvasRef } from '@darthrapid/react-native-simple-canvas';
 
 export default function App() {
   const canvasRef = useRef<SimpleCanvasRef>(null);

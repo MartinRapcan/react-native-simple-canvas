@@ -2,7 +2,7 @@
   "compilerOptions": {
     "rootDir": ".",
     "paths": {
-      "@martinrapcan/react-native-simple-canvas": ["./src/index"]
+      "@darthrapid/react-native-simple-canvas": ["./src/index"]
     },
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
