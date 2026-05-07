@@ -28,7 +28,7 @@ jobs:
       - name: Typecheck files
         run: bun run typecheck
 
-build-library:
+  build-library:
     runs-on: ubuntu-latest
 
     steps:
