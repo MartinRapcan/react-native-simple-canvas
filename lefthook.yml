@@ -4,9 +4,9 @@ pre-commit:
 
     types:
       glob: "*.{js,ts, jsx, tsx}"
-      run: npx tsc
+      run: bun run typecheck
 commit-msg:
   parallel: true
   commands:
     commitlint:
-      run: npx commitlint --edit
+      run: bun x commitlint --edit

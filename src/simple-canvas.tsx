@@ -132,8 +132,9 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
   ) => {
     // ── Refs ──────────────────────────────
     const viewRef = useRef<View | null>(null);
-    const canvasOriginRef = useRef<{ x: number; y: number } | null>(null);
+    const canvasOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const isMountedRef = useRef(true);
+    const isFirstRenderRef = useRef(true);
     const autoCaptureTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const currentPathRef = useRef("");
     const isDrawingRef = useRef(false);
@@ -157,7 +158,13 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
     pathsRef.current = paths;
 
     useEffect(() => {
+      if (isFirstRenderRef.current) {
+        isFirstRenderRef.current = false;
+        return;
+      }
+
       onStrokesChange?.(paths);
+      scheduleAutoCapture();
     }, [paths]);
 
     // Cleanup
@@ -236,15 +243,29 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
       [captureCanvas],
     );
 
+    // ── Path validation ─────────────────
+    const isValidPath = (d: string) => {
+      const trimmed = d.trimStart();
+      return trimmed.length > 0 && trimmed[0] === "M";
+    };
+
     // ── Coordinate helper ─────────────────
     const getLocalPoint = (evt: GestureResponderEvent) => {
       const { pageX, pageY } = evt.nativeEvent;
-      if (!canvasOriginRef.current) return null;
       return {
-        x: pageX - canvasOriginRef.current.x,
-        y: pageY - canvasOriginRef.current.y,
+        x: pageX - canvasOffsetRef.current.x,
+        y: pageY - canvasOffsetRef.current.y,
       };
     };
+
+    const measureCanvas = useCallback(() => {
+      (viewRef.current as any)?.measure(
+        (_x: number, _y: number, _w: number, _h: number, pageX: number, pageY: number) => {
+          if (!isMountedRef.current) return;
+          canvasOffsetRef.current = { x: pageX, y: pageY };
+        },
+      );
+    }, []);
 
     // ── PanResponder ──────────────────────
     const panResponder = useRef(
@@ -259,26 +280,21 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
           isDrawingRef.current = true;
           onStrokeStart?.();
 
-          const { pageX, pageY } = evt.nativeEvent;
+          const point = getLocalPoint(evt);
+          const d = `M${point.x},${point.y}`;
+          currentPathRef.current = d;
+          setCurrentPath(d);
 
-          (viewRef.current as any)?.measure((_x: number, _y: number, _w: number, _h: number, originX: number, originY: number) => {
-            if (!isMountedRef.current) return;
-            canvasOriginRef.current = { x: originX, y: originY };
-
-            const localX = pageX - originX;
-            const localY = pageY - originY;
-            const d = `M${localX},${localY}`;
-            currentPathRef.current = d;
-            setCurrentPath(d);
-          });
+          measureCanvas();
         },
 
         onPanResponderMove: (evt) => {
           if (!isDrawingRef.current) return;
+          if (!currentPathRef.current) return;
           const point = getLocalPoint(evt);
-          if (!point) return;
 
           const d = `${currentPathRef.current} L${point.x},${point.y}`;
+          if (!isValidPath(d)) return;
           currentPathRef.current = d;
           setCurrentPath(d);
         },
@@ -286,7 +302,8 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
         onPanResponderRelease: () => {
           isDrawingRef.current = false;
 
-          if (currentPathRef.current) {
+          const hasMovement = currentPathRef.current.includes(" L");
+          if (currentPathRef.current && hasMovement && isValidPath(currentPathRef.current)) {
             const stroke: StrokeData = {
               path: currentPathRef.current,
               color: strokeColorRef.current,
@@ -294,23 +311,20 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
             };
 
             setPaths((prev) => [...prev, stroke]);
-            setRedoStack([]); // new stroke clears redo history
-            setShowInitialImage(false); // hide fallback image once user draws
-
-            // Small delay so the committed path renders before we clear the live one
-            requestAnimationFrame(() => {
-              if (!isMountedRef.current) return;
-              currentPathRef.current = "";
-              setCurrentPath("");
-            });
+            setRedoStack([]);
+            setShowInitialImage(false);
 
             onStrokeEnd?.(stroke);
-            scheduleAutoCapture();
           }
+
+          currentPathRef.current = "";
+          setCurrentPath("");
         },
 
         onPanResponderTerminate: () => {
           isDrawingRef.current = false;
+          currentPathRef.current = "";
+          setCurrentPath("");
         },
       }),
     ).current;
@@ -330,6 +344,7 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
         <View
           ref={viewRef as any}
           collapsable={false}
+          onLayout={measureCanvas}
           style={[
             {
               flex: 1,
@@ -361,18 +376,20 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
               bottom: 0,
             }}
           >
-            {paths.map((p, i) => (
-              <Path
-                key={`${i}-${p.path.length}`}
-                d={p.path}
-                stroke={p.color}
-                strokeWidth={p.strokeWidth}
-                fill="none"
-                strokeLinecap={strokeLineCap}
-                strokeLinejoin={strokeLineJoin}
-              />
-            ))}
-            {currentPath !== "" && (
+            {paths.map((p, i) =>
+              isValidPath(p.path) ? (
+                <Path
+                  key={`${i}-${p.path.length}`}
+                  d={p.path}
+                  stroke={p.color}
+                  strokeWidth={p.strokeWidth}
+                  fill="none"
+                  strokeLinecap={strokeLineCap}
+                  strokeLinejoin={strokeLineJoin}
+                />
+              ) : null,
+            )}
+            {currentPath !== "" && isValidPath(currentPath) && (
               <Path
                 d={currentPath}
                 stroke={strokeColorRef.current}

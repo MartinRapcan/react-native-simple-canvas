@@ -1,0 +1,24 @@
+diff --git a/src/loadConfig.js b/src/loadConfig.js
+index 7ac9d88404063ce86d8c15a91ce72c439b455075..ec7e2d50e99f38ddb88179571f25e6c9a7289c7d 100644
+--- a/src/loadConfig.js
++++ b/src/loadConfig.js
+@@ -7,6 +7,7 @@ exports.loadConfig = loadConfig;
+ exports.loadConfigFile = loadConfigFile;
+ exports.mergeConfig = mergeConfig;
+ exports.resolveConfig = resolveConfig;
++var _url = require("url");
+ var _defaults = _interopRequireDefault(require("./defaults"));
+ var _validConfig = _interopRequireDefault(require("./defaults/validConfig"));
+ var fs = _interopRequireWildcard(require("fs"));
+@@ -289,7 +290,10 @@ async function loadConfigFile(absolutePath) {
+       }
+     } catch (e) {
+       try {
+-        const configModule = await import(absolutePath);
++        const pathToImport = path.isAbsolute(absolutePath) && process.platform === 'win32'
++          ? (0, _url.pathToFileURL)(absolutePath).href
++          : absolutePath;
++        const configModule = await import(pathToImport);
+         config = await configModule.default;
+       } catch (error) {
+         let prefix = `Error loading Metro config at: ${absolutePath}\n`;
