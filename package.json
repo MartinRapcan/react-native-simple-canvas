@@ -66,8 +66,8 @@
   "peerDependencies": {
     "react": "*",
     "react-native": "*",
-    "react-native-svg": "^15.15.3",
-    "react-native-view-shot": "^4.0.3 || ^5.0.0"
+    "react-native-svg": "^15.15.5",
+    "react-native-view-shot": "^4.0.3 || ^5.1.1"
   },
   "workspaces": [
     "example"
@@ -91,10 +91,18 @@
       ]
     ]
   },
-"commitlint": {
+  "commitlint": {
     "extends": [
       "@commitlint/config-conventional"
-    ]
+    ],
+    "rules": {
+      "body-max-line-length": [
+        0
+      ],
+      "footer-max-line-length": [
+        0
+      ]
+    }
   },
   "create-react-native-library": {
     "type": "library",

@@ -24,6 +24,14 @@ export type StrokeData = {
   strokeWidth: number;
 };
 
+/** Full canvas state — paths and their undone counterparts.
+ *  Use with `snapshot()` / `restore()` to save/restore the entire
+ *  undo/redo history (e.g. one snapshot per background image). */
+export type SimpleCanvasSnapshot = {
+  paths: StrokeData[];
+  redoStack: StrokeData[];
+};
+
 export type SimpleCanvasRef = {
   /** Capture canvas as image – returns a file URI (jpg/png) */
   capture: (options?: CaptureOptions) => Promise<string>;
@@ -35,8 +43,17 @@ export type SimpleCanvasRef = {
   clear: () => void;
   /** Get all recorded strokes */
   getStrokes: () => StrokeData[];
-  /** Load strokes programmatically (e.g. to restore a previous drawing) */
+  /** Load strokes programmatically (e.g. to restore a previous drawing).
+   *  Clears the redo stack — use `restore()` if you need to keep it. */
   setStrokes: (strokes: StrokeData[]) => void;
+  /** Whether there is at least one stroke that can be undone */
+  canUndo: () => boolean;
+  /** Whether there is at least one previously undone stroke that can be redone */
+  canRedo: () => boolean;
+  /** Grab the full canvas state (paths + redo stack) for later restoration */
+  snapshot: () => SimpleCanvasSnapshot;
+  /** Replace canvas state with a previously taken snapshot */
+  restore: (snapshot: SimpleCanvasSnapshot) => void;
 };
 
 export type CaptureOptions = {
@@ -131,7 +148,7 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
     ref,
   ) => {
     // ── Refs ──────────────────────────────
-    const viewRef = useRef<View | null>(null);
+    const viewRef = useRef<React.ComponentRef<typeof View>>(null);
     const canvasOffsetRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
     const isMountedRef = useRef(true);
     const isFirstRenderRef = useRef(true);
@@ -139,41 +156,38 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
     const currentPathRef = useRef("");
     const isDrawingRef = useRef(false);
 
-    // Keep latest props in refs so PanResponder always reads fresh values
+    // Keep latest props/callbacks in refs so the PanResponder (created once)
+    // and delayed effects always read the current values.
     const strokeColorRef = useRef(strokeColor);
     const strokeWidthRef = useRef(strokeWidth);
     const disabledRef = useRef(disabled);
+    const onStrokeStartRef = useRef(onStrokeStart);
+    const onStrokeEndRef = useRef(onStrokeEnd);
+    const onStrokesChangeRef = useRef(onStrokesChange);
+    const onCaptureRef = useRef(onCapture);
     strokeColorRef.current = strokeColor;
     strokeWidthRef.current = strokeWidth;
     disabledRef.current = disabled;
+    onStrokeStartRef.current = onStrokeStart;
+    onStrokeEndRef.current = onStrokeEnd;
+    onStrokesChangeRef.current = onStrokesChange;
+    onCaptureRef.current = onCapture;
 
     // ── State ─────────────────────────────
     const [paths, setPaths] = useState<StrokeData[]>([]);
-    const [, setRedoStack] = useState<StrokeData[]>([]);
+    const [redoStack, setRedoStack] = useState<StrokeData[]>([]);
     const [currentPath, setCurrentPath] = useState("");
     const [showInitialImage, setShowInitialImage] = useState(!!initialImage);
 
-    // Notify parent on strokes change
     const pathsRef = useRef(paths);
     pathsRef.current = paths;
+    const redoStackRef = useRef(redoStack);
+    redoStackRef.current = redoStack;
 
+    // Sync initialImage prop → state so parent updates take effect
     useEffect(() => {
-      if (isFirstRenderRef.current) {
-        isFirstRenderRef.current = false;
-        return;
-      }
-
-      onStrokesChange?.(paths);
-      scheduleAutoCapture();
-    }, [paths]);
-
-    // Cleanup
-    useEffect(() => {
-      return () => {
-        isMountedRef.current = false;
-        if (autoCaptureTimer.current) clearTimeout(autoCaptureTimer.current);
-      };
-    }, []);
+      setShowInitialImage(!!initialImage);
+    }, [initialImage]);
 
     // ── Capture helper ────────────────────
     const captureCanvas = useCallback(
@@ -190,8 +204,10 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
       [captureFormat, captureQuality],
     );
 
-    const scheduleAutoCapture = useCallback(() => {
-      if (!autoCapture || !onCapture) return;
+    // Stable, ref-backed schedule so the paths effect never sees a stale version
+    const scheduleAutoCaptureRef = useRef<() => void>(() => {});
+    scheduleAutoCaptureRef.current = () => {
+      if (!autoCapture || !onCaptureRef.current) return;
 
       if (autoCaptureTimer.current) clearTimeout(autoCaptureTimer.current);
 
@@ -199,12 +215,31 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
         if (!isMountedRef.current) return;
         try {
           const uri = await captureCanvas();
-          if (isMountedRef.current) onCapture(uri);
+          if (isMountedRef.current) onCaptureRef.current?.(uri);
         } catch (e) {
           console.warn("[SimpleCanvas] auto-capture failed", e);
         }
       }, autoCaptureDelay);
-    }, [autoCapture, autoCaptureDelay, onCapture, captureCanvas]);
+    };
+
+    // Notify parent + auto-capture on stroke changes
+    useEffect(() => {
+      if (isFirstRenderRef.current) {
+        isFirstRenderRef.current = false;
+        return;
+      }
+
+      onStrokesChangeRef.current?.(paths);
+      scheduleAutoCaptureRef.current();
+    }, [paths]);
+
+    // Cleanup
+    useEffect(() => {
+      return () => {
+        isMountedRef.current = false;
+        if (autoCaptureTimer.current) clearTimeout(autoCaptureTimer.current);
+      };
+    }, []);
 
     // ── Imperative API ────────────────────
     useImperativeHandle(
@@ -238,6 +273,20 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
         setStrokes: (strokes: StrokeData[]) => {
           setPaths(strokes);
           setRedoStack([]);
+          if (strokes.length > 0) setShowInitialImage(false);
+        },
+        canUndo: () => pathsRef.current.length > 0,
+        canRedo: () => redoStackRef.current.length > 0,
+        snapshot: () => ({
+          paths: [...pathsRef.current],
+          redoStack: [...redoStackRef.current],
+        }),
+        restore: (snap: SimpleCanvasSnapshot) => {
+          setPaths([...snap.paths]);
+          setRedoStack([...snap.redoStack]);
+          setCurrentPath("");
+          currentPathRef.current = "";
+          if (snap.paths.length > 0) setShowInitialImage(false);
         },
       }),
       [captureCanvas],
@@ -249,7 +298,10 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
       return trimmed.length > 0 && trimmed[0] === "M";
     };
 
-    // ── Coordinate helper ─────────────────
+    // Use pageX/pageY minus the measured canvas offset so a stroke can extend
+    // beyond the canvas bounds (the outer wrapper's `overflow: "hidden"` clips
+    // it visually). `locationX/Y` would clamp to the responder view on some
+    // platforms and cause the stroke to snap back when the finger leaves.
     const getLocalPoint = (evt: GestureResponderEvent) => {
       const { pageX, pageY } = evt.nativeEvent;
       return {
@@ -259,7 +311,7 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
     };
 
     const measureCanvas = useCallback(() => {
-      (viewRef.current as any)?.measure(
+      viewRef.current?.measure(
         (_x: number, _y: number, _w: number, _h: number, pageX: number, pageY: number) => {
           if (!isMountedRef.current) return;
           canvasOffsetRef.current = { x: pageX, y: pageY };
@@ -278,7 +330,7 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
 
         onPanResponderGrant: (evt) => {
           isDrawingRef.current = true;
-          onStrokeStart?.();
+          onStrokeStartRef.current?.();
 
           const point = getLocalPoint(evt);
           const d = `M${point.x},${point.y}`;
@@ -314,7 +366,7 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
             setRedoStack([]);
             setShowInitialImage(false);
 
-            onStrokeEnd?.(stroke);
+            onStrokeEndRef.current?.(stroke);
           }
 
           currentPathRef.current = "";
@@ -342,7 +394,7 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
         ]}
       >
         <View
-          ref={viewRef as any}
+          ref={viewRef}
           collapsable={false}
           onLayout={measureCanvas}
           style={[
@@ -356,6 +408,7 @@ export const SimpleCanvas = React.forwardRef<SimpleCanvasRef, SimpleCanvasProps>
         >
           {showInitialImage && (
             <Image
+              key={initialImage}
               source={{ uri: initialImage }}
               style={{
                 position: "absolute",

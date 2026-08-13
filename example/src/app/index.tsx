@@ -14,6 +14,12 @@ const DEMOS = [
     title: "Auto Capture",
     description: "Canvas with live auto-capture preview below",
   },
+  {
+    href: "/advanced",
+    title: "Advanced Features",
+    description:
+      "Per-image undo/redo via snapshot/restore, programmatic strokes, canUndo/canRedo, initial image swap",
+  },
 ] as const;
 
 export default function HomeScreen() {

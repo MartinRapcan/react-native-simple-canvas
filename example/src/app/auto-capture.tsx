@@ -6,6 +6,10 @@ import { SimpleCanvas, type SimpleCanvasRef } from "../../../src";
 export default function AutoCaptureScreen() {
   const canvasRef = useRef<SimpleCanvasRef>(null);
   const [capturedUri, setCapturedUri] = useState<string | null>(null);
+  const [, setTick] = useState(0);
+
+  const canUndo = canvasRef.current?.canUndo() ?? false;
+  const canRedo = canvasRef.current?.canRedo() ?? false;
 
   return (
     <>
@@ -22,6 +26,7 @@ export default function AutoCaptureScreen() {
             onCapture={(uri) => {
               setCapturedUri(uri);
             }}
+            onStrokesChange={() => setTick((t) => t + 1)}
             style={styles.flex}
           />
         </View>
@@ -42,11 +47,19 @@ export default function AutoCaptureScreen() {
         </View>
 
         <View style={styles.toolbar}>
-          <TouchableOpacity style={styles.btn} onPress={() => canvasRef.current?.undo()}>
-            <Text style={styles.btnText}>Undo</Text>
+          <TouchableOpacity
+            style={[styles.btn, !canUndo && styles.btnDisabled]}
+            disabled={!canUndo}
+            onPress={() => canvasRef.current?.undo()}
+          >
+            <Text style={[styles.btnText, !canUndo && styles.btnDisabledText]}>Undo</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.btn} onPress={() => canvasRef.current?.redo()}>
-            <Text style={styles.btnText}>Redo</Text>
+          <TouchableOpacity
+            style={[styles.btn, !canRedo && styles.btnDisabled]}
+            disabled={!canRedo}
+            onPress={() => canvasRef.current?.redo()}
+          >
+            <Text style={[styles.btnText, !canRedo && styles.btnDisabledText]}>Redo</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.btn, styles.btnDanger]}
@@ -80,6 +93,8 @@ const styles = StyleSheet.create({
   toolbar: { flexDirection: "row", justifyContent: "center", gap: 10, paddingHorizontal: 16, paddingBottom: 20, paddingTop: 4 },
   btn: { paddingHorizontal: 20, paddingVertical: 12, borderRadius: 12, backgroundColor: "#E8E8E8" },
   btnText: { fontSize: 15, fontWeight: "600", color: "#333" },
+  btnDisabled: { backgroundColor: "#F0F0F0" },
+  btnDisabledText: { color: "#BBB" },
   btnDanger: { backgroundColor: "#FFEBEE" },
   btnDangerText: { color: "#C62828" },
 });
