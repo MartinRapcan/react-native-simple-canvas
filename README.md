@@ -1,6 +1,6 @@
 # @darthrapid/react-native-simple-canvas
 
-A simple, lightweight drawing canvas for React Native with SVG-based rendering. Supports freehand drawing, undo/redo, manual and auto-capture to image, customizable stroke styles, and initial image display.
+A simple, lightweight drawing canvas for React Native with SVG-based rendering. Supports freehand drawing, undo/redo (with `canUndo` / `canRedo` gating), manual and auto-capture to image, customizable stroke styles, initial image display with runtime swapping, programmatic strokes, and full-state `snapshot` / `restore` for per-image history.
 
 ## Installation
 
@@ -73,9 +73,84 @@ export default function App() {
 | `capture(options?)` | Capture canvas as image. Returns a file URI. |
 | `undo()` | Undo the last stroke |
 | `redo()` | Redo a previously undone stroke |
-| `clear()` | Clear all strokes |
+| `clear()` | Clear all strokes and redo stack |
 | `getStrokes()` | Get all recorded strokes |
-| `setStrokes(strokes)` | Load strokes programmatically |
+| `setStrokes(strokes)` | Load strokes programmatically. Clears the redo stack and hides the initial image when strokes are non-empty. |
+| `canUndo()` | `true` if there is at least one stroke that can be undone |
+| `canRedo()` | `true` if there is at least one previously undone stroke that can be redone |
+| `snapshot()` | Return the full canvas state (`{ paths, redoStack }`) for later restoration |
+| `restore(snapshot)` | Replace the canvas state with a previously taken snapshot (both paths and redo stack) |
+
+## Recipes
+
+### Disable Undo/Redo when the stack is empty
+
+`canUndo()` / `canRedo()` are the fastest way to gate toolbar buttons.
+Trigger a re-render on stroke change so the values stay fresh:
+
+```tsx
+const canvasRef = useRef<SimpleCanvasRef>(null);
+const [, setTick] = useState(0);
+
+const canUndo = canvasRef.current?.canUndo() ?? false;
+const canRedo = canvasRef.current?.canRedo() ?? false;
+
+<SimpleCanvas
+  ref={canvasRef}
+  onStrokesChange={() => setTick((t) => t + 1)}
+/>
+<Button title="Undo" disabled={!canUndo} onPress={() => canvasRef.current?.undo()} />
+<Button title="Redo" disabled={!canRedo} onPress={() => canvasRef.current?.redo()} />
+```
+
+### Per-image undo/redo history
+
+Use `snapshot()` and `restore()` to keep an independent undo/redo stack per
+background image. Swap `initialImage` and swap the canvas state in the same
+tick:
+
+```tsx
+import {
+  SimpleCanvas,
+  type SimpleCanvasRef,
+  type SimpleCanvasSnapshot,
+} from '@darthrapid/react-native-simple-canvas';
+
+const EMPTY: SimpleCanvasSnapshot = { paths: [], redoStack: [] };
+
+const canvasRef = useRef<SimpleCanvasRef>(null);
+const snapshotsRef = useRef<Record<string, SimpleCanvasSnapshot>>({});
+const [activeId, setActiveId] = useState('a');
+
+const switchImage = (nextId: string) => {
+  const current = canvasRef.current?.snapshot();
+  if (current) snapshotsRef.current[activeId] = current;
+  setActiveId(nextId);
+  canvasRef.current?.restore(snapshotsRef.current[nextId] ?? EMPTY);
+};
+```
+
+## Types
+
+All named exports are TypeScript-first:
+
+```ts
+import type {
+  SimpleCanvasProps,
+  SimpleCanvasRef,
+  SimpleCanvasSnapshot,
+  StrokeData,
+  CaptureOptions,
+} from '@darthrapid/react-native-simple-canvas';
+```
+
+| Type | Shape | Purpose |
+|------|-------|---------|
+| `SimpleCanvasProps` | Props of `<SimpleCanvas />` | Component prop typing |
+| `SimpleCanvasRef` | Imperative API (`capture`, `undo`, `snapshot`, …) | Type for the ref you pass to the component |
+| `SimpleCanvasSnapshot` | `{ paths: StrokeData[]; redoStack: StrokeData[] }` | Full canvas state used by `snapshot()` / `restore()` |
+| `StrokeData` | `{ path: string; color: string; strokeWidth: number }` | A single recorded stroke |
+| `CaptureOptions` | `{ format?: "jpg" \| "png"; quality?: number }` | Optional args for `capture()` |
 
 ## Contributing
 
